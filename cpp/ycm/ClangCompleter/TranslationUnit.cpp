@@ -242,6 +242,33 @@ Location TranslationUnit::GetDefinitionLocation(
   return Location( clang_getCursorLocation( definition_cursor ) );
 }
 
+Location TranslationUnit::GetDefinitionLocation(
+  const std::string &filename,
+  int line,
+  int column,
+  const std::vector< UnsavedFile > &unsaved_files,
+  bool reparse ) {
+  if ( reparse )
+    Reparse( unsaved_files );
+
+  unique_lock< mutex > lock( clang_access_mutex_ );
+
+  if ( !clang_translation_unit_ )
+    return Location();
+
+  CXCursor cursor = GetCursor( filename, line, column );
+
+  if ( !CursorIsValid( cursor ) )
+    return Location();
+
+  CXCursor definition_cursor = clang_getCursorDefinition( cursor );
+
+  if ( !CursorIsValid( definition_cursor ) )
+    return Location();
+
+  return Location( clang_getCursorLocation( definition_cursor ) );
+}
+
 std::string TranslationUnit::GetTypeAtLocation(
   int line,
   int column,
@@ -485,10 +512,19 @@ DocumentationData TranslationUnit::GetDocsForLocationInFile(
 
 CXCursor TranslationUnit::GetCursor( int line, int column ) {
   // ASSUMES A LOCK IS ALREADY HELD ON clang_access_mutex_!
+  return GetCursor( filename_, line, column );
+}
+
+CXCursor TranslationUnit::GetCursor(
+  const std::string &filename,
+  int line,
+  int column ) {
+
+  // ASSUMES A LOCK IS ALREADY HELD ON clang_access_mutex_!
   if ( !clang_translation_unit_ )
     return clang_getNullCursor();
 
-  CXFile file = clang_getFile( clang_translation_unit_, filename_.c_str() );
+  CXFile file = clang_getFile( clang_translation_unit_, filename.c_str() );
   CXSourceLocation source_location = clang_getLocation(
                                        clang_translation_unit_,
                                        file,

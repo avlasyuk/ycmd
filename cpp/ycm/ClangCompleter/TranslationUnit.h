@@ -76,6 +76,13 @@ public:
     const std::vector< UnsavedFile > &unsaved_files,
     bool reparse = true );
 
+  YCM_DLL_EXPORT Location GetDefinitionLocation(
+    const std::string &filename,
+    int line,
+    int column,
+    const std::vector<UnsavedFile> &unsaved_files,
+    bool reparse = true);
+
   YCM_DLL_EXPORT std::string GetTypeAtLocation(
     int line,
     int column,
@@ -110,6 +117,8 @@ private:
 
   CXCursor GetCursor( int line, int column );
 
+  CXCursor GetCursor( const std::string& filename, int line, int column );
+
   /////////////////////////////
   // PRIVATE MEMBER VARIABLES
   /////////////////////////////
@@ -126,4 +135,3 @@ private:
 } // namespace YouCompleteMe
 
 #endif /* end of include guard: TRANSLATIONUNIT_H_XQ7I6SVA */
-

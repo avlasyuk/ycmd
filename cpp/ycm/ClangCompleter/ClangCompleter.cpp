@@ -34,6 +34,27 @@ using std::shared_ptr;
 
 namespace YouCompleteMe {
 
+namespace {
+
+bool GuessIsHeader( const std::string &filename ) {
+  fs::path path( filename );
+  std::string ext = path.extension().string();
+  return ext == ".h" || ext == ".hpp" || ext == ".hxx";
+}
+
+std::vector< std::string >
+GuessCppFilename( const std::string &filename ) {
+  fs::path path( filename );
+  std::string baseFilename = ( path.parent_path() / path.stem() ).string();
+  std::vector< std::string > filenames;
+  filenames.push_back( baseFilename + "." + "cpp" );
+  filenames.push_back( baseFilename + "." + "cc" );
+  filenames.push_back( baseFilename + "." + "cxx" );
+  return filenames;
+}
+
+}
+
 ClangCompleter::ClangCompleter()
   : clang_index_( clang_createIndex( 0, 0 ) ),
     translation_unit_store_( clang_index_ ) {
@@ -155,7 +176,37 @@ Location ClangCompleter::GetDefinitionLocation(
     return Location();
   }
 
-  return unit->GetDefinitionLocation( line, column, unsaved_files, reparse );
+  Location location
+    = unit->GetDefinitionLocation( line, column, unsaved_files, reparse );
+
+  if ( location.IsValid() ) {
+    return location;
+  }
+
+  if ( !GuessIsHeader( filename ) ) {
+    return Location();
+  }
+
+  std::vector< std::string > candidates = GuessCppFilename( filename );
+
+  for ( const std::string &cppfilename : candidates ) {
+    shared_ptr< TranslationUnit > cppunit =
+      translation_unit_store_.GetOrCreate( cppfilename, unsaved_files, flags );
+
+    if ( !cppunit ) {
+      continue;
+    }
+
+    location = cppunit->GetDefinitionLocation( filename,
+                                               line,
+                                               column,
+                                               unsaved_files,
+                                               reparse );
+    if ( location.IsValid() )
+      return location;
+  }
+
+  return Location();
 }
 
 std::string ClangCompleter::GetTypeAtLocation(
